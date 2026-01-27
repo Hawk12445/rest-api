@@ -1,5 +1,5 @@
 {
-  "name": "YourName API",
+  "name": "Jay API",
   "version": "1.0.0",
   "description": "Simple and Easy-to-Use API Documentation",
   "header": {
@@ -14,12 +14,12 @@
     }
   },
   "apiSettings": {
-    "operator": "name_here"
+    "operator": "JayBohol"
   },
   "links": [
     {
       "name": "Contact Me",
-      "url": "https://facebook.com/profile.php"
+      "url": "https://www.facebook.com/Jay.bohol.d"
     },
     {
       "name": "Status",
