@@ -1,5 +1,5 @@
 {
-  "name": "rapido-api",
+  "name": "jay-api",
   "version": "1.0.0",
   "description": "A simple and customizable API documentation interface built with Express.js.",
   "main": "index.js",
@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --no-deprecation index.js"
   },
-  "author": "rapido",
+  "author": "Jay",
   "license": "MIT",
   "dependencies": {
     "@napi-rs/canvas": "^0.1.77",
