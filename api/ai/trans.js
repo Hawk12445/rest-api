@@ -1,76 +1,76 @@
 const axios = require('axios');
 const fs = require('fs');
 
-// Mémoire des traductions par UID
+// Memory of translations by UID
 const memory = {};
 
 function saveMemory(uid) {
   try {
-    fs.writeFileSync(`./memory_tradu_${uid}.json`, JSON.stringify(memory[uid], null, 2), 'utf8');
+    fs.writeFileSync(`./memory_translate_${uid}.json`, JSON.stringify(memory[uid], null, 2), 'utf8');
   } catch (e) {
-    console.error('Erreur sauvegarde mémoire:', e.message);
+    console.error('Error saving memory:', e.message);
   }
 }
 
 function loadMemory(uid) {
   try {
-    const file = `./memory_tradu_${uid}.json`;
+    const file = `./memory_translate_${uid}.json`;
     if (fs.existsSync(file)) {
       return JSON.parse(fs.readFileSync(file, 'utf8'));
     }
   } catch (e) {
-    console.error('Erreur chargement mémoire:', e.message);
+    console.error('Error loading memory:', e.message);
   }
   return null;
 }
 
-// Endpoint /traduire
-async function onTraduire({ req, res }) {
+// Endpoint /translate
+async function onTranslate({ req, res }) {
   const { text, lang, uid } = req.query;
 
   if (!text || !lang || !uid) {
     return res.status(400).json({
-      error: "Les paramètres 'text', 'lang' et 'uid' sont requis",
-      example: "/traduire?text=Bonjour&lang=en&uid=123"
+      error: "Parameters 'text', 'lang', and 'uid' are required",
+      example: "/translate?text=Hello&lang=en&uid=123"
     });
   }
 
-  // Initialisation mémoire pour cet UID
+  // Initialize memory for this UID
   if (!memory[uid]) {
     const saved = loadMemory(uid);
     memory[uid] = saved || [];
   }
 
-  // Ajout du texte original à la mémoire
+  // Add original text to memory
   memory[uid].push({ role: 'user', content: text });
 
   try {
-    // Appel réel à LibreTranslate
+    // Actual call to LibreTranslate
     const response = await axios.post('https://libretranslate.de/translate', {
       q: text,
-      source: 'auto', // détecte automatiquement la langue
+      source: 'auto', // automatically detects language
       target: lang,
       format: 'text'
     }, {
       headers: { 'Content-Type': 'application/json' }
     });
 
-    const traduction = response.data.translatedText;
+    const translation = response.data.translatedText;
 
-    // Ajout de la traduction dans la mémoire
-    memory[uid].push({ role: 'assistant', content: traduction });
+    // Add translation to memory
+    memory[uid].push({ role: 'assistant', content: translation });
     saveMemory(uid);
 
-    // Retour au client
+    // Return to client
     res.json({
       status: true,
-      translation: traduction
+      translation: translation
     });
 
   } catch (err) {
-    console.error("Erreur traduction:", err.message);
+    console.error("Translation error:", err.message);
     res.status(500).json({ status: false, error: err.message });
   }
 }
 
-module.exports = { onTraduire };
+module.exports = { onTranslate };
