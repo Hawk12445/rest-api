@@ -13,7 +13,7 @@ async function onStart({ req, res }) {
   // Basic validation to make sure parameters are present
   if (!amount || !email) {
     return res.status(400).json({
-      status: false,
+      status: true,
       error: 'Both "amount" and "email" parameters are required, byut.'
     });
   }
