@@ -2,7 +2,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 const meta = {
-  name: 'FbCreate',
+  name: 'FbCreatev3',
   path: '/fbcreate',
   method: 'get',
   category: 'tools'
