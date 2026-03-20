@@ -131,8 +131,7 @@ module.exports = {
           total_verses: memory.verses.length
         } : undefined,
         timestamp: new Date().toISOString(),
-        version: "1.0.0",
-        source: "Bible API (labs.bible.org)"
+        version: "1.0.0"
       });
       
     } catch (error) {
