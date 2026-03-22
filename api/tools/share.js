@@ -32,7 +32,7 @@ module.exports = {
               cookie: "Facebook session cookie string",
               url: "Facebook post URL to share",
               amount: "Number of shares (1-100)",
-              interval: "Seconds between shares (5-60)"
+              interval: "Seconds between shares (1-10)"
             }
           }
         });
@@ -76,10 +76,11 @@ module.exports = {
         });
       }
       
-      if (isNaN(parsedInterval) || parsedInterval < 5 || parsedInterval > 60) {
+      // ✅ FIXED: Allow interval from 1 to 10 seconds
+      if (isNaN(parsedInterval) || parsedInterval < 1 || parsedInterval > 10) {
         return res.status(400).json({
           status: false,
-          error: "Interval must be between 5 and 60 seconds"
+          error: "Interval must be between 1 and 10 seconds"
         });
       }
       
@@ -121,6 +122,7 @@ module.exports = {
         post_id: postId,
         target: parsedAmount,
         interval: parsedInterval,
+        warning: parsedInterval < 3 ? "⚠️ Very fast interval may trigger rate limits" : null,
         timestamp: new Date().toISOString()
       });
       
