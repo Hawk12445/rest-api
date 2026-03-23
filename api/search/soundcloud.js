@@ -21,27 +21,22 @@ module.exports = {
         const result = await downloadSoundCloud(url);
         
         return res.json({
-          status: true,
-          operator: "Jaybohol",
-          action: "download",
-          track: {
+          success: true,
+          author: "Jaybohol",
+          result: {
             title: result.title,
-            artist: result.artist,
             duration: result.duration,
-            thumbnail: result.thumbnail,
-            download_url: result.download_url,
-            stream_url: result.stream_url
-          },
-          timestamp: new Date().toISOString()
+            url: result.download_url || result.stream_url
+          }
         });
       }
       
       // Search tracks by query
       if (!q) {
         return res.status(400).json({
-          status: false,
-          operator: "Jaybohol",
-          error: "Search query (q) or URL is required",
+          success: false,
+          author: "Jaybohol",
+          message: "Parameter 'q' atau URL diperlukan",
           usage: {
             search: "/soundcloud?q=lofi&limit=5",
             download: "/soundcloud?url=https://soundcloud.com/artist/track"
@@ -53,24 +48,24 @@ module.exports = {
       const results = await searchSoundCloud(q, limitVal);
       
       res.json({
-        status: true,
-        operator: "Jaybohol",
-        action: "search",
-        query: q,
-        limit: limitVal,
-        count: results.length,
-        tracks: results,
-        timestamp: new Date().toISOString()
+        success: true,
+        author: "Jaybohol",
+        result: results.map(track => ({
+          title: track.title,
+          artist: track.artist,
+          duration: track.duration,
+          url: track.url,
+          thumbnail: track.thumbnail
+        }))
       });
       
     } catch (error) {
       console.error("SoundCloud API Error:", error.message);
       
       res.status(500).json({
-        status: false,
-        operator: "Jaybohol",
-        error: error.message || "Failed to process SoundCloud request",
-        timestamp: new Date().toISOString()
+        success: false,
+        author: "Jaybohol",
+        message: error.message || "Failed to process SoundCloud request"
       });
     }
   }
@@ -106,14 +101,8 @@ async function searchSoundCloud(query, limit = 10) {
       artist: track.user.username,
       duration: formatDuration(track.duration),
       duration_ms: track.duration,
-      plays: track.playback_count || 0,
-      likes: track.likes_count || 0,
-      genre: track.genre || "Unknown",
-      release_date: track.release_date,
-      thumbnail: track.artwork_url || track.user.avatar_url,
       url: track.permalink_url,
-      stream_url: track.stream_url,
-      download_url: track.download_url || null
+      thumbnail: track.artwork_url || track.user.avatar_url
     }));
     
   } catch (error) {
@@ -145,8 +134,10 @@ async function downloadSoundCloud(url) {
     
     const track = trackInfo.data;
     
+    // Get stream URL with client_id
     const streamUrl = track.stream_url ? `${track.stream_url}?client_id=${clientId}` : null;
     
+    // Get download URL if available
     let downloadUrl = track.download_url;
     if (downloadUrl) {
       downloadUrl = `${downloadUrl}?client_id=${clientId}`;
@@ -154,13 +145,9 @@ async function downloadSoundCloud(url) {
     
     return {
       title: track.title,
-      artist: track.user.username,
       duration: formatDuration(track.duration),
-      duration_ms: track.duration,
-      thumbnail: track.artwork_url || track.user.avatar_url,
       stream_url: streamUrl,
-      download_url: downloadUrl,
-      permalink: track.permalink_url
+      download_url: downloadUrl || streamUrl
     };
     
   } catch (error) {
@@ -258,10 +245,9 @@ async function searchSoundCloudFallback(query, limit = 10) {
         results.push({
           title: title,
           artist: artist || "Unknown Artist",
-          url: link.startsWith('http') ? link : `https://soundcloud.com${link}`,
           duration: duration || "N/A",
-          thumbnail: thumbnail || null,
-          source: "soundcloud"
+          url: link.startsWith('http') ? link : `https://soundcloud.com${link}`,
+          thumbnail: thumbnail || null
         });
       }
     });
@@ -285,11 +271,8 @@ async function downloadSoundCloudFallback(url) {
     if (response.data && response.data.url) {
       return {
         title: response.data.title || "SoundCloud Track",
-        artist: response.data.artist || "Unknown Artist",
         duration: response.data.duration || "N/A",
-        thumbnail: response.data.thumbnail || null,
-        download_url: response.data.url,
-        stream_url: response.data.url
+        download_url: response.data.url
       };
     }
     
