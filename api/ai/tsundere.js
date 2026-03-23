@@ -8,19 +8,38 @@ module.exports = {
     author: "Jaybohol",
     version: "1.0.0",
     category: "ai",
-    method: "POST",
-    path: "/api/ai/tsundere"
+    method: "GET",
+    path: "/api/ai/tsundere?text="
   },
   
   onStart: async function({ req, res }) {
     try {
-      const { text, voice = "Kore", language = "id-ID", speed = 1.1, pitch = 2.5 } = req.body;
+      // Support both POST and GET
+      let text;
+      
+      if (req.method === 'POST') {
+        // POST: get from body
+        text = req.body?.text;
+      } else {
+        // GET: get from query parameters
+        text = req.query?.text;
+      }
+      
+      const { voice = "Kore", language = "id-ID", speed = 1.1, pitch = 2.5 } = req.body || req.query;
       
       if (!text) {
         return res.status(400).json({
           success: false,
           author: "Jaybohol",
-          message: "Parameter 'text' wajib diisi."
+          message: "Parameter 'text' wajib diisi.",
+          usage: {
+            GET: "/api/ai/tsundere?text=Bukannya%20aku%20menyukaimu%20ya,%20dasar%20baka!",
+            POST: {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: { "text": "Bukannya aku menyukaimu ya, dasar baka!" }
+            }
+          }
         });
       }
       
@@ -80,46 +99,6 @@ module.exports = {
         success: false,
         author: "Jaybohol",
         message: error.message || "Failed to generate Tsundere TTS"
-      });
-    }
-  }
-};
-
-// ============= MEDIA ENDPOINT (for serving audio) =============
-
-// Add this as a separate API endpoint for serving audio files
-module.exports.media = {
-  meta: {
-    name: "Tsundere Media",
-    description: "Serve generated Tsundere TTS audio files",
-    author: "Jaybohol",
-    version: "1.0.0",
-    category: "media",
-    method: "GET",
-    path: "/api/media/:id"
-  },
-  
-  onStart: async function({ req, res }) {
-    try {
-      const { id } = req.params;
-      
-      if (!global.audioCache || !global.audioCache.has(id)) {
-        return res.status(404).json({
-          success: false,
-          message: "Audio not found or expired"
-        });
-      }
-      
-      const audioBuffer = global.audioCache.get(id);
-      
-      res.setHeader('Content-Type', 'audio/mpeg');
-      res.setHeader('Content-Disposition', 'inline');
-      res.send(audioBuffer);
-      
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
       });
     }
   }
