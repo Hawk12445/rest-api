@@ -1,7 +1,7 @@
 // api/ai/tsundere.js
 
 const axios = require("axios");
-const crypto = require("crypto");
+const FormData = require("form-data");
 
 module.exports = {
   meta: {
@@ -32,31 +32,8 @@ module.exports = {
       // Generate TTS audio
       const audioBuffer = await generateTsundereTTS(text, voice, language, parseFloat(speed), parseFloat(pitch));
       
-      // Generate unique ID for the audio
-      const audioId = generateAudioId(text);
-      
-      // Initialize cache if not exists
-      if (!global.audioCache) {
-        global.audioCache = new Map();
-        console.log("📦 Created new audio cache");
-      }
-      
-      // Store audio in cache
-      global.audioCache.set(audioId, audioBuffer);
-      console.log(`💾 Stored audio with ID: ${audioId}`);
-      
-      // Clean up after 5 minutes
-      setTimeout(() => {
-        if (global.audioCache && global.audioCache.has(audioId)) {
-          global.audioCache.delete(audioId);
-          console.log(`🗑️ Removed audio ${audioId} from cache`);
-        }
-      }, 5 * 60 * 1000);
-      
-      // Get the domain from the request
-      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.get('host');
-      const audioUrl = `${protocol}://${host}/api/media/${audioId}`;
+      // Upload to catbox.moe
+      const audioUrl = await uploadToCatbox(audioBuffer, `tsundere-${Date.now()}.mp3`);
       
       console.log(`✅ Audio URL: ${audioUrl}`);
       
@@ -85,13 +62,6 @@ module.exports = {
 
 function generateFakeIP() {
   return Array.from({ length: 4 }, () => Math.floor(Math.random() * 255)).join('.');
-}
-
-function generateAudioId(text) {
-  const timestamp = Date.now();
-  const random = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.createHash('sha256').update(`${text}${timestamp}`).digest('hex');
-  return `${hash.substring(0, 32)}:${random.substring(0, 32)}`;
 }
 
 async function generateTsundereTTS(text, voice, language, speed, pitch) {
@@ -141,10 +111,32 @@ async function generateTsundereTTS(text, voice, language, speed, pitch) {
     return audioBuffer;
   } catch (error) {
     console.error("Tsundere TTS API Error:", error.message);
-    
-    if (error.response) {
-      throw new Error(`TTS API Error: ${error.response.status}`);
-    }
     throw new Error(error.message || 'Failed to generate Tsundere TTS');
+  }
+}
+
+async function uploadToCatbox(buffer, filename) {
+  try {
+    const formData = new FormData();
+    formData.append('reqtype', 'fileupload');
+    formData.append('fileToUpload', buffer, { filename: filename });
+    
+    const response = await axios.post('https://catbox.moe/user/api.php', formData, {
+      headers: formData.getHeaders(),
+      timeout: 30000
+    });
+    
+    const url = response.data.trim();
+    
+    if (url && url.startsWith('http')) {
+      console.log(`✅ Uploaded to catbox: ${url}`);
+      return url;
+    }
+    
+    throw new Error("Upload failed: " + url);
+    
+  } catch (error) {
+    console.error("Upload Error:", error.message);
+    throw new Error("Failed to upload audio to catbox.moe");
   }
 }
